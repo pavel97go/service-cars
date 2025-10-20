@@ -17,8 +17,8 @@ func ValidateStruct(v interface{}) error {
 }
 
 type CreateCarRequest struct {
-	Brand string `json:"brand" validate:"required,min=1,max=50"`
-	Model string `json:"model" validate:"required,min=1,max=50"`
+	Brand string `json:"brand" validate:"required,alphaunicode,min=1,max=50"`
+	Model string `json:"model" validate:"required,alphaunicode,min=1,max=50"`
 	Year  int    `json:"year" validate:"required,gte=1886"`
 }
 
