@@ -41,7 +41,6 @@ func Run(ctx context.Context) error {
 	app := fiber.New()
 	app.Use(metrics.Middleware())
 	app.Get("/metrics", metrics.Handler())
-
 	router.Register(app, h)
 
 	log.Printf("Server is running on %s", addr)

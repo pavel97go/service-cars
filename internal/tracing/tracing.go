@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 
+	"github.com/gofiber/fiber/v2"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -47,4 +48,13 @@ func Init(ctx context.Context, serviceName string, endpoint string) (*sdktrace.T
 
 	otel.SetTracerProvider(tp)
 	return tp, nil
+}
+func Middleware() fiber.Handler {
+	tr := otel.Tracer("http")
+	return func(c *fiber.Ctx) error {
+		ctx, span := tr.Start(c.Context(), c.Method()+" "+c.Route().Path)
+		defer span.End()
+		c.SetUserContext(ctx)
+		return c.Next()
+	}
 }

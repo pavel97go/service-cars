@@ -1,0 +1,27 @@
+run:
+  timeout: 3m
+  skip-dirs:
+    - vendor
+
+linters:
+  enable:
+    - govet
+    - staticcheck
+    - errcheck
+    - ineffassign
+    - gofmt
+    - gosimple
+    - unused
+    - prealloc
+    - gocyclo
+    - revive
+    - goimports
+    - dupl
+
+issues:
+  exclude-use-default: false
+  max-same-issues: 0
+  max-issues-per-linter: 0
+
+output:
+  sort-results: true
