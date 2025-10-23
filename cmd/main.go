@@ -8,8 +8,7 @@ import (
 )
 
 func main() {
-	ctx := context.Background()
-	if err := app.Run(ctx); err != nil {
-		log.Fatalf("Application error: %v", err)
+	if err := app.Run(context.Background()); err != nil {
+		log.Fatal(err)
 	}
 }
