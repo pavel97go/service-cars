@@ -9,6 +9,7 @@ import (
 
 	"github.com/pavel97go/service-cars/internal/config"
 	"github.com/pavel97go/service-cars/internal/handler"
+	"github.com/pavel97go/service-cars/internal/metrics"
 	"github.com/pavel97go/service-cars/internal/models"
 	"github.com/pavel97go/service-cars/internal/repository"
 	"github.com/pavel97go/service-cars/internal/router"
@@ -18,6 +19,8 @@ import (
 
 func Run(ctx context.Context) error {
 	models.Validate()
+	metrics.Init()
+
 	cfg := config.Init()
 	addr := ":" + cfg.App.Port
 	dsn := cfg.GetConnStr()
@@ -30,13 +33,17 @@ func Run(ctx context.Context) error {
 		return err
 	}
 	defer pool.Close()
+
 	repo := repository.NewCarRepo(pool)
 	uc := usecase.NewCarUsecase(repo)
 	h := handler.NewCarHandler(uc)
 
 	app := fiber.New()
+	app.Use(metrics.Middleware())
+	app.Get("/metrics", metrics.Handler())
+
 	router.Register(app, h)
 
-	log.Printf(" Server running on %s", addr)
+	log.Printf("Server is running on %s", addr)
 	return app.Listen(addr)
 }
