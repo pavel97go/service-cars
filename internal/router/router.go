@@ -6,7 +6,7 @@ import (
 )
 
 func Register(app *fiber.App, h *handler.CarHandler) {
-	api := app.Group("/api/v1")
+	api := app.Group("api/v1")
 	cars := api.Group("/cars")
 
 	cars.Post("/", h.Create)

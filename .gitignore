@@ -1,35 +1,18 @@
-# Binaries
 bin/
 *.exe
 *.out
 
-# Go
 *.test
 *.log
-coverage.*
 vendor/
+coverage.*
 
-# Build artifacts
-dist/
-tmp/
-*.pid
-
-# IDE
 .vscode/
 .idea/
 *.swp
 
-# Env
 .env
 .env.local
-.env.*
 
-# Docker
-docker-data/
-pg_data/
-
-# Node/Front 
-node_modules/
-
-# Generated
-**/mocks/*
+*.pid
+tmp/
