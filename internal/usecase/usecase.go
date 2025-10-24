@@ -23,7 +23,7 @@ func (u *CarUC) Create(ctx context.Context, req models.CreateCarRequest) (models
 	}
 	currentYear := time.Now().Year()
 	if req.Year > currentYear+1 {
-		return models.CarResponse{}, fmt.Errorf("%w: invalid year", apperr.ErrInvalidInput)
+		return models.CarResponse{}, fmt.Errorf("%w: year %d invalid", apperr.ErrInvalidInput, req.Year)
 	}
 	car := models.Car{
 		Brand: req.Brand,
@@ -86,7 +86,7 @@ func (u *CarUC) Update(ctx context.Context, req models.UpdateCarRequest) (models
 	}
 
 	if err := u.repo.UpdateCar(ctx, car); err != nil {
-		if err == apperr.ErrNotFound { // если запись удалили между Read и Update
+		if err == apperr.ErrNotFound {
 			return models.CarResponse{}, apperr.ErrNotFound
 		}
 		return models.CarResponse{}, err
