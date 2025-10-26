@@ -24,3 +24,9 @@ docker-up:
 
 docker-down: 
 	docker compose down
+
+lint:
+	golangci-lint run ./...
+
+race:
+	go test ./... -race

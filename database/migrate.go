@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"embed"
+	"fmt"
 	"time"
 
 	"github.com/go-faster/errors"
@@ -21,7 +22,11 @@ func Migrate(connStr string) error {
 	if err != nil {
 		return errors.Wrap(err, "sql.Open(pgx)")
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			fmt.Println("db.Close error:", err)
+		}
+	}()
 
 	if err := db.PingContext(ctx); err != nil {
 		return errors.Wrap(err, "ping db")

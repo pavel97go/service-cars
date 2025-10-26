@@ -1,7 +1,17 @@
 run:
   timeout: 3m
-  skip-dirs:
+
+issues:
+  exclude-dirs:
     - vendor
+  exclude-use-default: false
+  max-same-issues: 0
+  max-issues-per-linter: 0
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - revive
+      text: "unused-parameter"
 
 linters:
   enable:
@@ -14,14 +24,24 @@ linters:
     - unused
     - prealloc
     - gocyclo
-    - revive
     - goimports
     - dupl
+    - revive
 
-issues:
-  exclude-use-default: false
-  max-same-issues: 0
-  max-issues-per-linter: 0
-
-output:
-  sort-results: true
+linters-settings:
+  revive:
+    rules:
+     
+      - name: indent-error-flow
+      - name: early-return
+      - name: errorf
+      - name: empty-block
+      - name: unreachable-code
+      - name: superfluous-else
+      - name: redefines-builtin-id
+      - name: package-comments
+        disabled: true
+      - name: exported
+        disabled: true
+      - name: unused-parameter
+        disabled: true

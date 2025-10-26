@@ -53,7 +53,11 @@ func Middleware() fiber.Handler {
 
 		if inited {
 			method := string(c.Method())
+
 			route := c.Route().Path
+			if route == "" {
+				route = "<unknown>"
+			}
 			status := c.Response().StatusCode()
 			httpRequestsTotal.WithLabelValues(method, route, http.StatusText(status)).Inc()
 			httpDurationHist.WithLabelValues(method, route).Observe(time.Since(start).Seconds())
