@@ -38,28 +38,28 @@ jobs:
       - name: Build all packages
         run: go build -v ./...
 
-  lint:
+    lint:
     name: Lint (golangci-lint)
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Go
-        uses: actions/setup-go@v5
+      - name: Set up Go (for lint)
+        uses: actions/setup-go@v4
         with:
-          go-version: '1.23.x'
-          cache: true
+          go-version: '1.24.x'   
 
-      - name: Download deps (for linters)
+      - name: Download deps for lint
         run: go mod download
 
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
-          version: latest
-          args: -c .golangci.yml ./...
+          version: v1.64.8
+          
+          args: --config=.golangci.yml --go 1.24 ./...
 
   test:
     name: Test & Race (Go ${{ matrix.go }})
