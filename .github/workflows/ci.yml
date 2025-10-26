@@ -27,11 +27,11 @@ jobs:
       - name: Go mod download
         run: go mod download
 
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
-        with:
-          version: latest
-          args: --timeout=3m ./...
+      - name: Run golangci-lint
+  uses: golangci/golangci-lint-action@v6
+  with:
+    version: latest
+    args: --config=.golangci.yml ./...
 
       - name: Unit tests (coverage)
         run: |
