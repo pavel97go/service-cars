@@ -1,0 +1,68 @@
+name: Tests
+
+on:
+  push:
+    branches: [ "main", "develop" ]
+  pull_request:
+    branches: [ "main", "develop" ]
+
+jobs:
+  tests:
+    name: Run Unit & Integration Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:14.10-alpine
+        env:
+          POSTGRES_DB: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d postgres"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      DB_URL: postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.24.x'
+
+      - name: Install dependencies
+        run: go mod download
+
+      - name: Wait for Postgres
+        run: |
+          for i in {1..15}; do
+            if pg_isready -h localhost -U postgres -d postgres; then
+              echo "✅ Postgres is ready!"
+              exit 0
+            fi
+            echo "⏳ Waiting for Postgres ($i/15)..."
+            sleep 5
+          done
+          exit 1
+
+      - name: Run migrations
+        run: go run ./cmd/migrate/main.go
+        env:
+          DB_URL: ${{ env.DB_URL }}
+
+      - name: Run tests
+        run: go test -v -race -coverprofile=coverage.out ./...
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.out
