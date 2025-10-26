@@ -114,6 +114,8 @@ curl -X POST http://localhost:8080/api/v1/cars \
 make test
 make race
 ```
+![Go CI](https://github.com/pavel97go/service-cars/actions/workflows/ci.yml/badge.svg)
+![Tests](https://github.com/pavel97go/service-cars/actions/workflows/tests.yml/badge.svg)
 
 Покрытие тестами (на текущий момент):
 - **cache:** ~87%
