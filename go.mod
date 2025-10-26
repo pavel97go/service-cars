@@ -1,6 +1,6 @@
 module github.com/pavel97go/service-cars
 
-go 1.25.0
+go 1.24.0
 
 require (
 	github.com/go-faster/errors v0.7.1
