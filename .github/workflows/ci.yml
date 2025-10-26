@@ -10,84 +10,49 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v4
         with:
-          go-version: '1.24.1'
-
-      - name: Cache Go modules
-        uses: actions/cache@v4
+          go-version: '1.24.x'
+      - uses: actions/cache@v4
         with:
           path: |
-            ~/go/pkg/mod
             ~/.cache/go-build
+            ~/go/pkg/mod
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
-
-      - name: Install dependencies
-        run: go mod download
-
-      - name: Build binary
-        run: go build -v ./...
+      - run: go mod download
+      - run: go build -v ./...
 
   lint:
-    name: Lint
+    name: Lint (golangci-lint)
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v4
         with:
-          go-version: '1.24.1'
-
-      - name: Download dependencies for lint
-        run: go mod download
-
+          go-version: '1.24.x'
+      - run: go mod download
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v4
+        uses: golangci/golangci-lint-action@v6
         with:
-          version: v1.64.8
-          args: --modules-download-mode=readonly ./...
+          version: latest          
+          args: -c .golangci.yml --timeout=3m ./...
 
-  test:
-    name: Test + Mocks
+  unit-tests:
+    name: Unit tests
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v4
         with:
-          go-version: '1.24.1'
-
-      - name: Install dependencies
-        run: go mod download
-
-      - name: Install mockgen
-        run: go install github.com/golang/mock/mockgen@v1.6.0
-
-      - name: Generate mocks
-        run: |
-          mockgen -source=internal/repository/interface.go \
-                  -destination=internal/mocks/goods_mock.go \
-                  -package=mocks
-
+          go-version: '1.24.x'
+      - run: go mod download
       - name: Run tests
         run: go test -v -race -coverprofile=coverage.out ./...
-
-      - name: Upload coverage to GitHub (optional)
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: coverage
+          name: coverage-unit
           path: coverage.out
