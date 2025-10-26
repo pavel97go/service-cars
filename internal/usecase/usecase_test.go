@@ -2,6 +2,7 @@ package usecase_test
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
 
@@ -12,6 +13,10 @@ import (
 	"github.com/pavel97go/service-cars/internal/usecase"
 )
 
+func TestMain(m *testing.M) {
+	models.Validate()
+	os.Exit(m.Run())
+}
 func TestCreateCar(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
