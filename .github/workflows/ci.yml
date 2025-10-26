@@ -2,43 +2,44 @@ name: Go CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: ["main"]
   pull_request:
-    branches: [ main, develop ]
-
-permissions:
-  contents: read
-
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+    branches: ["main"]
 
 jobs:
   build:
-    name: Build (Go ${{ matrix.go }})
+    name: Build (Go 1.22.x / 1.23.x)
     runs-on: ubuntu-latest
     strategy:
-      fail-fast: false
       matrix:
-        go: [ '1.22.x', '1.23.x' ]
+        go: ["1.22.x", "1.23.x"]
 
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Go
-        uses: actions/setup-go@v5
+      - name: Set up Go
+        uses: actions/setup-go@v4
         with:
           go-version: ${{ matrix.go }}
-          cache: true
 
-      - name: Download deps
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Install dependencies
         run: go mod download
 
-      - name: Build all packages
+      - name: Build binary
         run: go build -v ./...
 
-    lint:
+  lint:
     name: Lint (golangci-lint)
     runs-on: ubuntu-latest
 
@@ -46,51 +47,59 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Go (for lint)
+      - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.24.x'   
+          go-version: "1.24.x"
 
-      - name: Download deps for lint
+      - name: Download dependencies
         run: go mod download
 
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
           version: v1.64.8
-          
           args: --config=.golangci.yml --go 1.24 ./...
 
   test:
-    name: Test & Race (Go ${{ matrix.go }})
+    name: Test & Race (Go 1.22.x / 1.23.x)
     runs-on: ubuntu-latest
     strategy:
-      fail-fast: false
       matrix:
-        go: [ '1.22.x', '1.23.x' ]
+        go: ["1.22.x", "1.23.x"]
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: cars
+          POSTGRES_PASSWORD: cars
+          POSTGRES_DB: cars
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U cars -d cars"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=5
 
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Go
-        uses: actions/setup-go@v5
+      - name: Set up Go
+        uses: actions/setup-go@v4
         with:
           go-version: ${{ matrix.go }}
-          cache: true
 
-      - name: Download deps
+      - name: Install dependencies
         run: go mod download
 
-      - name: Run unit tests with coverage
-        run: go test ./... -coverprofile=coverage.out -covermode=atomic
-
-      - name: Race detector
-        run: go test ./... -race
+      - name: Run tests (with race detector & coverage)
+        run: go test -v -race -coverprofile=coverage.out ./...
 
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
         with:
           name: coverage-${{ matrix.go }}
           path: coverage.out
-          if-no-files-found: ignore
