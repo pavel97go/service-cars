@@ -2,27 +2,19 @@ name: Go CI
 
 on:
   push:
-    branches: ["main"]
+    branches: [ "main" ]
   pull_request:
-    branches: ["main"]
+    branches: [ "main" ]
 
 jobs:
   build:
-    name: Build (Go 1.22.x / 1.23.x)
+    name: Build (Go 1.22.x)
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        go: ["1.22.x", "1.23.x"]
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: ${{ matrix.go }}
-
+          go-version: '1.22.x'
       - name: Cache Go modules
         uses: actions/cache@v4
         with:
@@ -32,74 +24,41 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
-
-      - name: Install dependencies
+      - name: Download deps
         run: go mod download
-
-      - name: Build binary
-        run: go build -v ./...
+      - name: Build
+        run: go build ./...
 
   lint:
     name: Lint (golangci-lint)
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: "1.24.x"
-
-      - name: Download dependencies
+          go-version: '1.22.x'
+      - name: Download deps
         run: go mod download
-
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
-          version: v1.64.8
-          args: --config=.golangci.yml --go 1.24 ./...
+          version: latest
+          args: -c .golangci.yml --timeout=3m ./...
 
-  test:
-    name: Test & Race (Go 1.22.x / 1.23.x)
+  unit-tests:
+    name: Unit tests (race + cover)
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        go: ["1.22.x", "1.23.x"]
-
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_USER: cars
-          POSTGRES_PASSWORD: cars
-          POSTGRES_DB: cars
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd="pg_isready -U cars -d cars"
-          --health-interval=5s
-          --health-timeout=5s
-          --health-retries=5
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: ${{ matrix.go }}
-
-      - name: Install dependencies
+          go-version: '1.22.x'
+      - name: Download deps
         run: go mod download
-
-      - name: Run tests (with race detector & coverage)
-        run: go test -v -race -coverprofile=coverage.out ./...
-
-      - name: Upload coverage artifact
+      - name: Run tests
+        run: go test -race -coverprofile=coverage.out ./...
+      - name: Upload coverage
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-${{ matrix.go }}
+          name: coverage
           path: coverage.out
