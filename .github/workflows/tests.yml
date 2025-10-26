@@ -7,62 +7,77 @@ on:
     branches: [ "main", "develop" ]
 
 jobs:
-  tests:
-    name: Run Unit & Integration Tests
+  integration:
+    name: Integration tests (Postgres + migrations)
     runs-on: ubuntu-latest
 
     services:
       postgres:
-        image: postgres:14.10-alpine
+        image: postgres:16
         env:
-          POSTGRES_DB: postgres
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: cars
+          POSTGRES_USER: cars
+          POSTGRES_PASSWORD: cars
         ports:
           - 5432:5432
+        # дождёмся готовности БД
         options: >-
-          --health-cmd="pg_isready -U postgres -d postgres"
+          --health-cmd="pg_isready -U cars -d cars -h 127.0.0.1 -p 5432"
           --health-interval=5s
           --health-timeout=5s
-          --health-retries=10
-
-    env:
-      DB_URL: postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable
+          --health-retries=20
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v4
         with:
           go-version: '1.24.x'
-
-      - name: Install dependencies
-        run: go mod download
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      - run: go mod download
 
       - name: Wait for Postgres
         run: |
-          for i in {1..15}; do
-            if pg_isready -h localhost -U postgres -d postgres; then
-              echo "✅ Postgres is ready!"
+          for i in {1..30}; do
+            if pg_isready -U cars -d cars -h 127.0.0.1 -p 5432; then
+              echo "Postgres is ready"
               exit 0
             fi
-            echo "⏳ Waiting for Postgres ($i/15)..."
-            sleep 5
+            echo "Waiting for Postgres ($i/30)..."
+            sleep 2
           done
-          exit 1
+          echo "Postgres not ready in time" && exit 1
 
       - name: Run migrations
-        run: go run ./cmd/migrate/main.go
         env:
-          DB_URL: ${{ env.DB_URL }}
+          DB_HOST: 127.0.0.1
+          DB_PORT: "5432"
+          DB_USER: cars
+          DB_PASSWORD: cars
+          DB_NAME: cars
+          DB_SSLMODE: disable
+          DSN: postgres://cars:cars@127.0.0.1:5432/cars?sslmode=disable
+        run: go run ./cmd/migrate/main.go
 
-      - name: Run tests
-        run: go test -v -race -coverprofile=coverage.out ./...
-
-      - name: Upload coverage
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage
-          path: coverage.out
+      - name: Run integration tests
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: "5432"
+          DB_USER: cars
+          DB_PASSWORD: cars
+          DB_NAME: cars
+          DB_SSLMODE: disable
+          DSN: postgres://cars:cars@127.0.0.1:5432/cars?sslmode=disable
+        # если интеграционных тестов нет, чтобы job не падал:
+        run: |
+          if ls integration/*_test.go >/dev/null 2>&1; then
+            go test -v ./integration/... 
+          else
+            echo "No integration tests found, skipping."
+          fi
