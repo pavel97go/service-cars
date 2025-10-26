@@ -2,6 +2,7 @@ package cache
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
@@ -134,7 +135,7 @@ func (c *CarCache) InsertCar(ctx context.Context, newCar *models.Car) error {
 }
 func (c *CarCache) UpdateCar(ctx context.Context, updatedCar *models.Car) error {
 	if err := c.next.UpdateCar(ctx, updatedCar); err != nil {
-		if err == apperr.ErrNotFound {
+		if errors.Is(err, apperr.ErrNotFound) {
 			return apperr.ErrNotFound
 		}
 		return err
@@ -146,7 +147,7 @@ func (c *CarCache) UpdateCar(ctx context.Context, updatedCar *models.Car) error 
 }
 func (c *CarCache) DeleteByID(ctx context.Context, id string) error {
 	if err := c.next.DeleteByID(ctx, id); err != nil {
-		if err == apperr.ErrNotFound {
+		if errors.Is(err, apperr.ErrNotFound) {
 			return apperr.ErrNotFound
 		}
 		return err

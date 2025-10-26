@@ -2,10 +2,12 @@ package cache_test
 
 import (
 	"context"
-	"reflect"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/pavel97go/service-cars/internal/apperr"
 	"github.com/pavel97go/service-cars/internal/cache"
@@ -26,10 +28,9 @@ type fakeRepo struct {
 var _ repository.CarProvider = (*fakeRepo)(nil)
 
 func newFakeRepo() *fakeRepo {
-	return &fakeRepo{
-		cars: map[string]models.Car{},
-	}
+	return &fakeRepo{cars: map[string]models.Car{}}
 }
+
 func (f *fakeRepo) ListCars(ctx context.Context) ([]models.Car, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -41,6 +42,7 @@ func (f *fakeRepo) ListCars(ctx context.Context) ([]models.Car, error) {
 	copy(out, f.list)
 	return out, nil
 }
+
 func (f *fakeRepo) GetCarByID(ctx context.Context, id string) (*models.Car, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -55,6 +57,7 @@ func (f *fakeRepo) GetCarByID(ctx context.Context, id string) (*models.Car, erro
 	cc := c
 	return &cc, nil
 }
+
 func (f *fakeRepo) InsertCar(ctx context.Context, c *models.Car) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -66,6 +69,7 @@ func (f *fakeRepo) InsertCar(ctx context.Context, c *models.Car) error {
 	f.list = append(f.list, *c)
 	return nil
 }
+
 func (f *fakeRepo) UpdateCar(ctx context.Context, c *models.Car) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -85,6 +89,7 @@ func (f *fakeRepo) UpdateCar(ctx context.Context, c *models.Car) error {
 	}
 	return nil
 }
+
 func (f *fakeRepo) DeleteByID(ctx context.Context, id string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -105,6 +110,7 @@ func (f *fakeRepo) DeleteByID(ctx context.Context, id string) error {
 	f.list = out
 	return nil
 }
+
 func TestCarCache_GetCarByID_MissThenHit(t *testing.T) {
 	t.Parallel()
 
@@ -115,25 +121,15 @@ func TestCarCache_GetCarByID_MissThenHit(t *testing.T) {
 
 	c := cache.NewCarCache(repo, 200*time.Millisecond)
 	got1, err := c.GetCarByID(ctx, "id1")
-	if err != nil {
-		t.Fatalf("unexpected err: %v", err)
-	}
-	if got1 == nil || got1.ID != car.ID {
-		t.Fatalf("want id=%s, got=%v", car.ID, got1)
-	}
-	if repo.calls.get != 1 {
-		t.Fatalf("repo get calls=%d, want=1", repo.calls.get)
-	}
+	require.NoError(t, err)
+	require.NotNil(t, got1)
+	assert.Equal(t, car.ID, got1.ID)
+	assert.Equal(t, 1, repo.calls.get, "first call should hit repo")
+
 	got2, err := c.GetCarByID(ctx, "id1")
-	if err != nil {
-		t.Fatalf("unexpected err: %v", err)
-	}
-	if repo.calls.get != 1 {
-		t.Fatalf("repo get calls=%d, want still=1 (cache hit)", repo.calls.get)
-	}
-	if got2 == nil || got2.ID != got1.ID {
-		t.Fatalf("cache returned different car")
-	}
+	require.NoError(t, err)
+	assert.Equal(t, 1, repo.calls.get, "second call should be cache hit")
+	assert.Equal(t, got1.ID, got2.ID)
 }
 
 func TestCarCache_GetCarByID_ExpiredTTL(t *testing.T) {
@@ -145,19 +141,14 @@ func TestCarCache_GetCarByID_ExpiredTTL(t *testing.T) {
 	repo.cars[car.ID] = car
 
 	c := cache.NewCarCache(repo, 30*time.Millisecond)
-	if _, err := c.GetCarByID(ctx, car.ID); err != nil {
-		t.Fatal(err)
-	}
-	if repo.calls.get != 1 {
-		t.Fatalf("want repo get=1, got=%d", repo.calls.get)
-	}
-	time.Sleep(40 * time.Millisecond)
-	if _, err := c.GetCarByID(ctx, car.ID); err != nil {
-		t.Fatal(err)
-	}
-	if repo.calls.get != 2 {
-		t.Fatalf("want repo get=2 after ttl, got=%d", repo.calls.get)
-	}
+	_, err := c.GetCarByID(ctx, car.ID)
+	require.NoError(t, err)
+	assert.Equal(t, 1, repo.calls.get)
+
+	time.Sleep(50 * time.Millisecond)
+	_, err = c.GetCarByID(ctx, car.ID)
+	require.NoError(t, err)
+	assert.Equal(t, 2, repo.calls.get, "should call repo again after TTL")
 }
 
 func TestCarCache_ListCars_CachesOnce(t *testing.T) {
@@ -165,39 +156,24 @@ func TestCarCache_ListCars_CachesOnce(t *testing.T) {
 
 	ctx := context.Background()
 	repo := newFakeRepo()
-	expected := []models.Car{
-		{ID: "1", Brand: "Toyota", Model: "Camry", Year: 2020},
-	}
+	expected := []models.Car{{ID: "1", Brand: "Toyota", Model: "Camry", Year: 2020}}
 	repo.list = expected
 
 	c := cache.NewCarCache(repo, time.Minute)
 	got1, err := c.ListCars(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !reflect.DeepEqual(expected, got1) {
-		t.Fatalf("want=%v, got=%v", expected, got1)
-	}
-	if repo.calls.list != 1 {
-		t.Fatalf("repo list calls=%d, want=1", repo.calls.list)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, expected, got1)
+	assert.Equal(t, 1, repo.calls.list)
+
 	got2, err := c.ListCars(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if repo.calls.list != 1 {
-		t.Fatalf("repo list calls=%d, want still=1 (cache hit)", repo.calls.list)
-	}
-	if len(got2) > 0 {
-		got2[0].Brand = "MUTATED"
-	}
+	require.NoError(t, err)
+	assert.Equal(t, 1, repo.calls.list, "second list should be cache hit")
+
+	// Проверяем, что кэш возвращает копию
+	got2[0].Brand = "MUTATED"
 	got3, err := c.ListCars(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got3[0].Brand != expected[0].Brand {
-		t.Fatalf("cache slice must be cloned; want=%s, got=%s", expected[0].Brand, got3[0].Brand)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, expected[0].Brand, got3[0].Brand, "cache should not be mutated")
 }
 
 func TestCarCache_Insert_Update_Delete_Invalidates(t *testing.T) {
@@ -207,49 +183,32 @@ func TestCarCache_Insert_Update_Delete_Invalidates(t *testing.T) {
 	repo := newFakeRepo()
 	c := cache.NewCarCache(repo, time.Minute)
 	repo.list = []models.Car{}
-	if _, err := c.ListCars(ctx); err != nil {
-		t.Fatal(err)
-	}
-	if repo.calls.list != 1 {
-		t.Fatalf("want repo list=1, got=%d", repo.calls.list)
-	}
+
+	_, err := c.ListCars(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, 1, repo.calls.list)
+
 	newCar := models.Car{ID: "id2", Brand: "Honda", Model: "Civic", Year: 2019}
-	if err := c.InsertCar(ctx, &newCar); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := c.ListCars(ctx); err != nil {
-		t.Fatal(err)
-	}
-	if repo.calls.list != 2 {
-		t.Fatalf("want repo list=2 after insert, got=%d", repo.calls.list)
-	}
+	require.NoError(t, c.InsertCar(ctx, &newCar))
+
+	_, err = c.ListCars(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, 2, repo.calls.list, "list invalidated after insert")
 
 	newCar.Brand = "HONDA"
-	if err := c.UpdateCar(ctx, &newCar); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, c.UpdateCar(ctx, &newCar))
 
 	repo.calls.get = 0
-	if _, err := c.GetCarByID(ctx, "id2"); err != nil {
-		t.Fatal(err)
-	}
+	_, err = c.GetCarByID(ctx, "id2")
+	require.NoError(t, err)
+	_, err = c.GetCarByID(ctx, "id2")
+	require.NoError(t, err)
+	assert.LessOrEqual(t, repo.calls.get, 1, "should be cached after first fetch")
 
-	if _, err := c.GetCarByID(ctx, "id2"); err != nil {
-		t.Fatal(err)
-	}
-	if repo.calls.get > 1 {
-		t.Fatalf("want repo get <=1 after update (warm or first miss), got=%d", repo.calls.get)
-	}
-
-	if err := c.DeleteByID(ctx, "id2"); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := c.ListCars(ctx); err != nil {
-		t.Fatal(err)
-	}
-	if repo.calls.list != 3 {
-		t.Fatalf("want repo list=3 after delete, got=%d", repo.calls.list)
-	}
+	require.NoError(t, c.DeleteByID(ctx, "id2"))
+	_, err = c.ListCars(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, 3, repo.calls.list, "list invalidated after delete")
 }
 
 func TestCarCache_ErrorsAreNotCached(t *testing.T) {
@@ -260,14 +219,11 @@ func TestCarCache_ErrorsAreNotCached(t *testing.T) {
 	repo.err = apperr.ErrNotFound
 
 	c := cache.NewCarCache(repo, time.Minute)
-	if _, err := c.GetCarByID(ctx, "nope"); err == nil {
-		t.Fatalf("want error, got nil")
-	}
+	_, err := c.GetCarByID(ctx, "nope")
+	require.Error(t, err)
+
 	getCalls := repo.calls.get
-	if _, err := c.GetCarByID(ctx, "nope"); err == nil {
-		t.Fatalf("want error again, got nil")
-	}
-	if repo.calls.get != getCalls+1 {
-		t.Fatalf("want repo get increment on repeat error, got=%d", repo.calls.get)
-	}
+	_, err = c.GetCarByID(ctx, "nope")
+	require.Error(t, err)
+	assert.Equal(t, getCalls+1, repo.calls.get, "errors must not be cached")
 }
